@@ -1,6 +1,10 @@
 autodarkmode_sources = [
   'main.c',
-  'sun.c'
+  'sun.c',
+  'extString.c',
+  'configuration.c',
+  'iniparser/src/dictionary.c',
+  'iniparser/src/iniparser.c',
 ]
 
 autodarkmode_deps = [

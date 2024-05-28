@@ -1,5 +1,6 @@
 #include <math.h>
 #include <glib.h>
+#include <stdbool.h>
 #include "sun.h"
 #define ZENITH -.83
 
@@ -14,10 +15,7 @@ float to_deg (float n) {
 // http://edwilliams.org/sunrise_sunset_algorithm.htm
 // if the sunset is desired, set sunset to >= 1
 // returns -1 if the sun never rises/sets in the specified location
-float calculateSun(int year, int month, int day, float lat, float lng, int localOffset, int sunset) {
-
-    if (sunset > 1)
-        sunset = 1;
+float calculateSun(int year, int month, int day, float lat, float lng, int localOffset, bool sunset) {
 
     float N1 = floor(275 * month / 9);
     float N2 = floor((month + 9) / 12);
@@ -26,7 +24,7 @@ float calculateSun(int year, int month, int day, float lat, float lng, int local
 
     float lngHour = lng / 15.0;
 
-    float t = N + ((sunset == 0 ? 6 : 18 - lngHour) / 24);
+    float t = N + ((!sunset ? 6 : 18 - lngHour) / 24);
 
     float M = (0.9856 * t) - 3.289;
 
@@ -49,7 +47,7 @@ float calculateSun(int year, int month, int day, float lat, float lng, int local
     else if (cosH < -1)
       return -1;
 
-    float H = sunset == 0 ? (360 - to_deg(acos(cosH))) : to_deg(acos(cosH));
+    float H = !sunset ? (360 - to_deg(acos(cosH))) : to_deg(acos(cosH));
     H = H / 15;
 
     float T = H + RA - (0.06571 * t) - 6.622;
@@ -62,4 +60,59 @@ float calculateSun(int year, int month, int day, float lat, float lng, int local
       UT = UT-24;
 
     return UT + localOffset;
+}
+
+float getSunrise(float lat, float lang) {
+    int year, month, day;
+    GDateTime *current_time = g_date_time_new_now_local();
+    g_date_time_get_ymd (current_time, &year, &month, &day);
+
+    int utc_offset = g_date_time_get_utc_offset (current_time)*2.7778*pow(10.0, -10.0);
+
+    free (current_time);
+    return calculateSun (year, month, day, lat, lang, utc_offset, false);
+}
+
+float getSunset(float lat, float lang) {
+    int year, month, day;
+    GDateTime *current_time = g_date_time_new_now_local();
+    g_date_time_get_ymd (current_time, &year, &month, &day);
+
+    int utc_offset = g_date_time_get_utc_offset (current_time)*2.7778*pow(10.0, -10.0);
+
+    free (current_time);
+    return calculateSun (year, month, day, lat, lang, utc_offset, true);
+}
+
+bool isDark(float sunrise, float sunset) {
+    GDateTime *current_time = g_date_time_new_now_local();
+
+    double rise_hours;
+    float rise_minutes = modf (sunrise, &rise_hours)*60;
+    double set_hours;
+    float set_minutes = modf (sunset, &set_hours)*60;
+
+    GDateTime *rise_time = g_date_time_new_local (g_date_time_get_year (current_time),
+                                                  g_date_time_get_month (current_time),
+                                                  g_date_time_get_day_of_month (current_time),
+                                                  rise_hours,
+                                                  rise_minutes,
+                                                  0);
+    GDateTime *set_time = g_date_time_new_local (g_date_time_get_year (current_time),
+                                                  g_date_time_get_month (current_time),
+                                                  g_date_time_get_day_of_month (current_time),
+                                                  set_hours,
+                                                  set_minutes,
+                                                  0);
+
+    if (g_date_time_compare (current_time, rise_time) == 1 && g_date_time_compare (current_time, set_time) == -1) {
+        free (rise_time);
+        free (set_time);
+        free (current_time);
+        return false;
+    }
+    free (rise_time);
+    free (set_time);
+    free (current_time);
+    return true;
 }

@@ -18,106 +18,127 @@
  */
 
 #include "config.h"
+#include "configuration.h"
 #include "sun.h"
-#include<math.h>
 
+#include <string.h>
+#include <unistd.h>
+#include <math.h>
+#include <signal.h>
 #include <glib.h>
 #include <stdlib.h>
 #include <locale.h>
 #include <glib/gi18n.h>
 #include <geoclue.h>
 
-static gint timeout = 30; /* seconds */
 static GClueAccuracyLevel accuracy_level = GCLUE_ACCURACY_LEVEL_EXACT;
-static gint time_threshold;
+
  GClueSimple *simple = NULL;
         GClueClient *client = NULL;
         GMainLoop *main_loop;
 
-static gboolean
-on_location_timeout (gpointer user_data)
-{
-    g_clear_object (&client);
-    g_clear_object (&simple);
-    g_main_loop_quit (main_loop);
-
-    return FALSE;
-}
+enum LocationType loctype = 0;
+dictionary *dict = NULL;
+bool quit = false;
+float lat = 0;
+float lng = 0;
 
 static void
-print_location (GClueSimple *simple)
+get_gclue_location (GClueSimple *simple)
 {
     GClueLocation *location;
-
-    GDateTime *current_time = g_date_time_new_now_local();
-
     location = gclue_simple_get_location (simple);
-    g_print ("\nNew location:\n");
-    g_print ("Latitude:    %f°\nLongitude:   %f°\nAccuracy:    %f meters\n",
-             gclue_location_get_latitude (location),
-             gclue_location_get_longitude (location),
-             gclue_location_get_accuracy (location));
+    lat = gclue_location_get_latitude (location);
+    lng = gclue_location_get_longitude (location);
 
-    int year, month, day;
-    g_date_time_get_ymd (current_time, &year, &month, &day);
-    g_print ("%d - %d - %d\n", year, month, day);
-
-    int utc_offset = g_date_time_get_utc_offset (current_time)*2.7778*pow(10.0, -10.0);
-
-    float localT = calculateSun(year, month, day, gclue_location_get_latitude (location), gclue_location_get_longitude (location), utc_offset, 0);
-    double hours;
-    float minutes = modf(localT,&hours)*60;
-    g_print("Sunrise: %.0f:%.0f\n",hours,minutes);
-
-    float sunsetT = calculateSun(year, month, day, gclue_location_get_latitude (location), gclue_location_get_longitude (location), utc_offset, 1);
-    double sunHours;
-    float sunMinutes = modf(sunsetT,&sunHours)*60;
-    g_print("Sunset: %.0f:%.0f\n",sunHours,sunMinutes);
-
-    g_free (current_time);
+    return;
 }
 
-static void
-on_client_active_notify (GClueClient *client,
-                         GParamSpec *pspec,
-                         gpointer    user_data)
+void
+on_dark (void)
 {
-    if (gclue_client_get_active (client))
+    g_print ("on dark");
+    char *home = getenv ("HOME");
+    char *darklock;
+    if (home != NULL) {
+        darklock = malloc(strlen(home)*sizeof(char)+strlen("/.cache/darkmode")*sizeof(char)+1);
+        sprintf (darklock, "%s/.cache/darkmode", home);
+        if (access(darklock, F_OK) == 0) {
+            free (darklock);
+            return;
+        }
+    }
+
+    const char *dark_command = iniparser_getstring (dict, "dark:cmd", "");
+    if (sizeof (dark_command) == sizeof ("")) {
+        g_printerr ("No command for dark mode specified!");
         return;
-
-    g_print ("Geolocation disabled. Quitting..\n");
-    on_location_timeout (NULL);
+    }
+    int rtrn = system (dark_command);
+    if (rtrn != 0) {
+        g_printerr("Dark command failed with non-zero exit code!");
+        free (darklock);
+        return;
+    }
+    FILE *dark = fopen (darklock, "w");
+    fclose (dark);
 }
 
-static void
-on_simple_ready (GObject      *source_object,
-                 GAsyncResult *res,
-                 gpointer      user_data)
+void
+on_light (void)
 {
-    GError *error = NULL;
+    g_print ("on light\n");
+    char *home = getenv ("HOME");
+    char *darklock;
+    if (home != NULL) {
+        darklock = malloc(strlen(home)*sizeof(char)+strlen("/.cache/darkmode")*sizeof(char)+1);
+        sprintf (darklock, "%s/.cache/darkmode", home);
+        if (access(darklock, F_OK) != 0) {
+            free (darklock);
+            return;
+        }
 
-    simple = gclue_simple_new_with_thresholds_finish (res, &error);
-    if (error != NULL) {
-        g_critical ("Failed to connect to GeoClue2 service: %s", error->message);
-        exit (-1);
     }
-    client = gclue_simple_get_client (simple);
-    if (client) {
-        g_object_ref (client);
-        g_print ("Client object: %s\n",
-                g_dbus_proxy_get_object_path (G_DBUS_PROXY (client)));
 
-        g_signal_connect (client,
-                          "notify::active",
-                          G_CALLBACK (on_client_active_notify),
-                          NULL);
+    const char *light_command = iniparser_getstring (dict, "light:cmd", "");
+    if (sizeof (light_command) == sizeof ("")) {
+        g_printerr ("No command for light mode specified!");
+        return;
     }
-    print_location (simple);
+    int rtrn = system (light_command);
+    if (rtrn != 0) {
+        g_printerr("Light command failed with non-zero exit code!");
+        free (darklock);
+        return;
+    }
 
-    g_signal_connect (simple,
-                      "notify::location",
-                      G_CALLBACK (print_location),
-                      NULL);
+    remove (darklock);
+    free (darklock);
+}
+
+void
+loop (void)
+{
+        float sunrise = getSunrise (lat, lng);
+        double hours;
+        float minutes = modf (sunrise, &hours)*60;
+        g_print ("Sunrise: %.0f:%.0f\n", hours, minutes);
+
+        float sunset = getSunset (lat, lng);
+        minutes = modf (sunset, &hours)*60;
+        g_print ("Sunset: %.0f:%.0f\n", hours, minutes);
+
+        if (isDark (sunrise, sunset))
+            on_dark ();
+        else
+            on_light ();
+}
+
+void
+handleExit(int sig) {
+    quit = true;
+    signal(sig, SIG_IGN);
+    return;
 }
 
 gint
@@ -147,18 +168,29 @@ main (gint   argc,
 		return EXIT_SUCCESS;
 	}
 
-    g_timeout_add_seconds (timeout, on_location_timeout, NULL);
+    dict = load_config ();
+    loctype = config_get_location_type (dict);
+    g_print("%d\n", loctype);
 
-    gclue_simple_new_with_thresholds ("autodarkmode",
-                                      accuracy_level,
-                                      time_threshold,
-                                      0,
-                                      NULL,
-                                      on_simple_ready,
-                                      NULL);
+    if (loctype == MANUAL) {
+        lat = config_get_latitude (dict);
+        lng = config_get_longitude (dict);
+    } else {
+        get_gclue_location (gclue_simple_new_sync ("autodarkmode",
+                            accuracy_level,
+                            NULL,
+                            NULL));
+        g_print ("lat: %f\n", lat);
+        g_print ("lng: %f\n", lng);
+    }
 
-    main_loop = g_main_loop_new (NULL, FALSE);
-    g_main_loop_run (main_loop);
+    signal(SIGINT, handleExit);
+    while (!quit) {
+        loop();
+        sleep (60);
+    }
+
+    iniparser_freedict (dict);
 
 	return EXIT_SUCCESS;
 }
