@@ -37,6 +37,8 @@ GMainLoop *main_loop;
 enum LocationType loctype = 0;
 dictionary *dict = NULL;
 bool quit = false;
+bool firstrun = true;
+bool isdark = false;
 float lat = 0;
 float lng = 0;
 
@@ -55,14 +57,18 @@ void
 on_dark (void)
 {
     char *home = getenv ("HOME");
-    char *darklock;
-    if (home != NULL) {
-        darklock = malloc(strlen(home)*sizeof(char)+strlen("/.cache/darkmode")*sizeof(char)+1);
-        sprintf (darklock, "%s/.cache/darkmode", home);
-        if (access(darklock, F_OK) == 0) {
-            free (darklock);
-            return;
-        }
+    char *darklock = malloc(strlen(home)*sizeof(char)+strlen("/.cache/darkmode")*sizeof(char)+1);
+    sprintf (darklock, "%s/.cache/darkmode", home);
+    if (firstrun) {
+      if (home != NULL) {
+          if (access(darklock, F_OK) == 0) {
+              free (darklock);
+              isdark = true;
+              return;
+          }
+      }
+    } else if (isdark) {
+      return;
     }
 
     const char *dark_command = iniparser_getstring (dict, "dark:cmd", "");
@@ -78,21 +84,26 @@ on_dark (void)
     }
     FILE *dark = fopen (darklock, "w");
     fclose (dark);
+    free (darklock);
+    isdark = true;
 }
 
 void
 on_light (void)
 {
-    char *home = getenv ("HOME");
-    char *darklock;
-    if (home != NULL) {
-        darklock = malloc(strlen(home)*sizeof(char)+strlen("/.cache/darkmode")*sizeof(char)+1);
-        sprintf (darklock, "%s/.cache/darkmode", home);
-        if (access(darklock, F_OK) != 0) {
-            free (darklock);
-            return;
-        }
-
+    char *home = getenv("HOME");
+    char *darklock = malloc(strlen(home)*sizeof(char)+strlen("/.cache/darkmode")*sizeof(char)+1);
+    sprintf (darklock, "%s/.cache/darkmode", home);
+    if (firstrun) {
+      if (home != NULL) {
+          if (access(darklock, F_OK) != 0) {
+              free (darklock);
+              isdark = true;
+              return;
+          }
+      }
+    } else if (!isdark) {
+      return;
     }
 
     const char *light_command = iniparser_getstring (dict, "light:cmd", "");
@@ -109,6 +120,7 @@ on_light (void)
 
     remove (darklock);
     free (darklock);
+    isdark = false;
 }
 
 void
@@ -127,6 +139,7 @@ loop (void)
             on_dark ();
         else
             on_light ();
+        firstrun = false;
 }
 
 void
