@@ -22,20 +22,17 @@
 #include "sun.h"
 
 #include <string.h>
-#include <unistd.h>
 #include <math.h>
 #include <signal.h>
 #include <glib.h>
 #include <stdlib.h>
-#include <locale.h>
-#include <glib/gi18n.h>
 #include <geoclue.h>
 
 static GClueAccuracyLevel accuracy_level = GCLUE_ACCURACY_LEVEL_EXACT;
 
- GClueSimple *simple = NULL;
-        GClueClient *client = NULL;
-        GMainLoop *main_loop;
+GClueSimple *simple = NULL;
+GClueClient *client = NULL;
+GMainLoop *main_loop;
 
 enum LocationType loctype = 0;
 dictionary *dict = NULL;
@@ -145,28 +142,6 @@ gint
 main (gint   argc,
       gchar *argv[])
 {
-	g_autoptr(GOptionContext) context = NULL;
-	g_autoptr(GError) error = NULL;
-	gboolean version = FALSE;
-	GOptionEntry main_entries[] = {
-		{ "version", 0, 0, G_OPTION_ARG_NONE, &version, "Show program version" },
-		{ NULL }
-	};
-
-	context = g_option_context_new ("- my command line tool");
-	g_option_context_add_main_entries (context, main_entries, NULL);
-
-	if (!g_option_context_parse (context, &argc, &argv, &error))
-	{
-		g_printerr ("%s\n", error->message);
-		return EXIT_FAILURE;
-	}
-
-	if (version)
-	{
-		g_printerr ("%s\n", PACKAGE_VERSION);
-		return EXIT_SUCCESS;
-	}
 
     dict = load_config ();
     loctype = config_get_location_type (dict);
