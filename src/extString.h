@@ -1,3 +1,3 @@
-char *strlwr(char *s);
-char *trim(char *s);
-char *replaceStr(char *s, char *old, char *replace);
+const char *strlwr(const char *s);
+char *trim(const char *s);
+char *replaceStr(const char *s, const char *old, const char *replace);

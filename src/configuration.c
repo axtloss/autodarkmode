@@ -63,7 +63,7 @@ config_get_location_type(dictionary *d)
     if (d == NULL)
         return GCLUE;
 
-    char *loctype = iniparser_getstring (d, "main:locationtype", "gclue");
+    const char *loctype = iniparser_getstring (d, "main:locationtype", "gclue");
 
     if (strcmp(strlwr(loctype), "gclue") == 0) {
         return GCLUE;

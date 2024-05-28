@@ -21,7 +21,7 @@
 #include <string.h>
 #include <ctype.h>
 
-char *strlwr(char *s)
+const char *strlwr(const char *s)
 {
   unsigned char *p = (unsigned char *)s;
 
@@ -33,7 +33,7 @@ char *strlwr(char *s)
   return s;
 }
 
-char *trim(char *s)
+char *trim(const char *s)
 {
   char *result = strdup(s);
   char *end;
@@ -51,7 +51,7 @@ char *trim(char *s)
   return result;
 }
 
-char *replaceStr(char *s, char *old, char *replace) {
+char *replaceStr(const char *s, const char *old, const char *replace) {
   char* result; 
   int i, cnt = 0; 
   size_t newSize = strlen(replace); 
