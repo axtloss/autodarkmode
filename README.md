@@ -3,7 +3,10 @@
 A simple tool to switch between dark and light mode.
 
 It executes a command on switch and nothing else.
-Location is either specified by the user or 
+
+Location is either specified by the user or retrieved via geoclue.
+
+It has a constant memory footprint of about 393kb.
 
 # Building
 ```

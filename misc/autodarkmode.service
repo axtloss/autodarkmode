@@ -1,0 +1,13 @@
+[Unit]
+Description=autodarkmode - Automatically switch between dark and light mode
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+ExecStart=autodarkmode
+Restart=on-failure
+
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
