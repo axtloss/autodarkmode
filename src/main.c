@@ -23,6 +23,102 @@
 
 #include <glib.h>
 #include <stdlib.h>
+#include <locale.h>
+#include <glib/gi18n.h>
+#include <geoclue.h>
+
+static gint timeout = 30; /* seconds */
+static GClueAccuracyLevel accuracy_level = GCLUE_ACCURACY_LEVEL_EXACT;
+static gint time_threshold;
+ GClueSimple *simple = NULL;
+        GClueClient *client = NULL;
+        GMainLoop *main_loop;
+
+static gboolean
+on_location_timeout (gpointer user_data)
+{
+    g_clear_object (&client);
+    g_clear_object (&simple);
+    g_main_loop_quit (main_loop);
+
+    return FALSE;
+}
+
+static void
+print_location (GClueSimple *simple)
+{
+    GClueLocation *location;
+
+    GDateTime *current_time = g_date_time_new_now_local();
+
+    location = gclue_simple_get_location (simple);
+    g_print ("\nNew location:\n");
+    g_print ("Latitude:    %f°\nLongitude:   %f°\nAccuracy:    %f meters\n",
+             gclue_location_get_latitude (location),
+             gclue_location_get_longitude (location),
+             gclue_location_get_accuracy (location));
+
+    int year, month, day;
+    g_date_time_get_ymd (current_time, &year, &month, &day);
+    g_print ("%d - %d - %d\n", year, month, day);
+
+    int utc_offset = g_date_time_get_utc_offset (current_time)*2.7778*pow(10.0, -10.0);
+
+    float localT = calculateSun(year, month, day, gclue_location_get_latitude (location), gclue_location_get_longitude (location), utc_offset, 0);
+    double hours;
+    float minutes = modf(localT,&hours)*60;
+    g_print("Sunrise: %.0f:%.0f\n",hours,minutes);
+
+    float sunsetT = calculateSun(year, month, day, gclue_location_get_latitude (location), gclue_location_get_longitude (location), utc_offset, 1);
+    double sunHours;
+    float sunMinutes = modf(sunsetT,&sunHours)*60;
+    g_print("Sunset: %.0f:%.0f\n",sunHours,sunMinutes);
+
+    g_free (current_time);
+}
+
+static void
+on_client_active_notify (GClueClient *client,
+                         GParamSpec *pspec,
+                         gpointer    user_data)
+{
+    if (gclue_client_get_active (client))
+        return;
+
+    g_print ("Geolocation disabled. Quitting..\n");
+    on_location_timeout (NULL);
+}
+
+static void
+on_simple_ready (GObject      *source_object,
+                 GAsyncResult *res,
+                 gpointer      user_data)
+{
+    GError *error = NULL;
+
+    simple = gclue_simple_new_with_thresholds_finish (res, &error);
+    if (error != NULL) {
+        g_critical ("Failed to connect to GeoClue2 service: %s", error->message);
+        exit (-1);
+    }
+    client = gclue_simple_get_client (simple);
+    if (client) {
+        g_object_ref (client);
+        g_print ("Client object: %s\n",
+                g_dbus_proxy_get_object_path (G_DBUS_PROXY (client)));
+
+        g_signal_connect (client,
+                          "notify::active",
+                          G_CALLBACK (on_client_active_notify),
+                          NULL);
+    }
+    print_location (simple);
+
+    g_signal_connect (simple,
+                      "notify::location",
+                      G_CALLBACK (print_location),
+                      NULL);
+}
 
 gint
 main (gint   argc,
@@ -51,21 +147,18 @@ main (gint   argc,
 		return EXIT_SUCCESS;
 	}
 
-        int year = 2024, month = 5, day = 28;
-        double latitude = 51.01;
-        double longitude = 7.563;
+    g_timeout_add_seconds (timeout, on_location_timeout, NULL);
 
-        float localT = calculateSunrise(year, month, day, latitude, longitude, 2);
-        double hours;
-        float minutes = modf(localT,&hours)*60;
-        g_print("Sunrise: %.0f:%.0f\n",hours,minutes);
+    gclue_simple_new_with_thresholds ("autodarkmode",
+                                      accuracy_level,
+                                      time_threshold,
+                                      0,
+                                      NULL,
+                                      on_simple_ready,
+                                      NULL);
 
-        float sunsetT = calculateSunset(year, month, day, latitude, longitude, 2);
-        double sunHours;
-        float sunMinutes = modf(sunsetT,&sunHours)*60;
-        g_print("Sunset: %.0f:%.0f\n",sunHours,sunMinutes);
-
-        return 0;
+    main_loop = g_main_loop_new (NULL, FALSE);
+    g_main_loop_run (main_loop);
 
 	return EXIT_SUCCESS;
 }

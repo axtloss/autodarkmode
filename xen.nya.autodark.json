@@ -1,10 +1,11 @@
 {
     "id" : "xen.nya.autodark",
-    "runtime" : "org.freedesktop.Platform",
-    "runtime-version" : "23.08",
-    "sdk" : "org.freedesktop.Sdk",
+    "runtime" : "org.gnome.Platform",
+    "runtime-version" : "46",
+    "sdk" : "org.gnome.Sdk",
     "command" : "autodarkmode",
     "finish-args" : [
+    	"--system-talk-name=org.freedesktop.GeoClue2.*"
     ],
     "cleanup" : [
         "/include",

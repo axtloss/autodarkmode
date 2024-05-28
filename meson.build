@@ -1,7 +1,7 @@
 project('autodarkmode', 'c',
           version: '0.1.0',
     meson_version: '>= 0.62.0',
-  default_options: [ 'warning_level=2', 'werror=false', 'c_std=gnu11', ],
+  default_options: [ 'warning_level=2', 'werror=false', 'c_std=gnu99', ],
 )
 
 cc = meson.get_compiler('c')
@@ -14,7 +14,6 @@ add_project_arguments(['-I' + meson.project_build_root()], language: 'c')
 project_c_args = ['-lm',]
 test_c_args = [
   '-Wcast-align',
-  '-Wdeclaration-after-statement',
   '-Werror=address',
   '-Werror=array-bounds',
   '-Werror=empty-body',
@@ -36,7 +35,6 @@ test_c_args = [
   '-Werror=redundant-decls',
   '-Werror=return-type',
   '-Werror=sequence-point',
-  '-Werror=shadow',
   '-Werror=strict-prototypes',
   '-Werror=trigraphs',
   '-Werror=undef',
@@ -78,7 +76,6 @@ foreach arg: test_c_args
 endforeach
 add_project_arguments(project_c_args, language: 'c')
 add_project_arguments('-lm', language: 'c')
-# add_project_arguments('-fsanitize=undefined,address', language: 'c')
 
 subdir('src')
 

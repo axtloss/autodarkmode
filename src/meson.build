@@ -5,6 +5,7 @@ autodarkmode_sources = [
 
 autodarkmode_deps = [
   dependency('glib-2.0'),
+  dependency('libgeoclue-2.0'),
 ]
 
 executable('autodarkmode', autodarkmode_sources,
