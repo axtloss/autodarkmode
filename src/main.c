@@ -54,7 +54,6 @@ get_gclue_location (GClueSimple *simple)
 void
 on_dark (void)
 {
-    g_print ("on dark");
     char *home = getenv ("HOME");
     char *darklock;
     if (home != NULL) {
@@ -84,7 +83,6 @@ on_dark (void)
 void
 on_light (void)
 {
-    g_print ("on light\n");
     char *home = getenv ("HOME");
     char *darklock;
     if (home != NULL) {
