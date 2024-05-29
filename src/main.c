@@ -47,6 +47,12 @@ get_gclue_location (GClueSimple *simple)
 {
     GClueLocation *location;
     location = gclue_simple_get_location (simple);
+
+    if (!location) {
+      g_printerr ("Failed to get location through geoclue");
+      exit (1);
+    }
+
     lat = gclue_location_get_latitude (location);
     lng = gclue_location_get_longitude (location);
 
@@ -153,10 +159,29 @@ gint
 main (gint   argc,
       gchar *argv[])
 {
+    //g_print ("%s\n", argv[1]);
+
+    g_autoptr(GError) error = NULL;
+    g_autoptr(GOptionContext) context = NULL;
+
+    gdouble locLat = 100;
+    gdouble locLng = 100;
+
+    GOptionEntry entries[] = {
+        { "latitude", 'l', 0, G_OPTION_ARG_DOUBLE, &locLat, "Override the latitude", "lat" },
+        { "longitude", 'o', 0, G_OPTION_ARG_DOUBLE, &locLng, "Override the longitude", "long" },
+        G_OPTION_ENTRY_NULL
+    };
+
+    context = g_option_context_new ("- automatically switch between dark and light mode");
+    g_option_context_add_main_entries (context, entries, NULL);
+    if (!g_option_context_parse (context, &argc, &argv, &error)) {
+        g_print ("option parsing failed: %s\n", error->message);
+        exit (1);
+    }
 
     dict = load_config ();
     loctype = config_get_location_type (dict);
-    g_print("%d\n", loctype);
 
     if (loctype == MANUAL) {
         lat = config_get_latitude (dict);
@@ -169,6 +194,9 @@ main (gint   argc,
         g_print ("lat: %f\n", lat);
         g_print ("lng: %f\n", lng);
     }
+
+    lat = locLat == 100 ? lat : locLat;
+    lng = locLng == 100 ? lng : locLng;
 
     signal(SIGINT, handleExit);
     while (!quit) {
